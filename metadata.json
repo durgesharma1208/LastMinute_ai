@@ -1,0 +1,6 @@
+{
+  "name": "LastMinute AI",
+  "description": "The AI Productivity Companion That Ensures You Never Miss a Deadline",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
