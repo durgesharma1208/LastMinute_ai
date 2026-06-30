@@ -40,34 +40,36 @@ export const Navigation: React.FC<NavigationProps> = ({
 
   return (
     <aside className="w-full md:w-64 bg-white text-slate-800 flex flex-col border-r border-slate-200 md:h-screen sticky top-0 z-40">
-      <div className="p-6 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-blue-600/5 to-indigo-600/5">
+      {/* Brand Header */}
+      <div className="p-6 border-b border-slate-200 flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="bg-gradient-to-br from-blue-600 to-indigo-600 p-2 rounded-lg text-white shadow-md shadow-blue-600/20">
+          <div className="bg-blue-600 p-2 rounded-lg text-white shadow-sm">
             <Sparkles className="w-5 h-5 animate-pulse" />
           </div>
           <div>
             <h1 className="text-lg font-bold font-display tracking-tight text-slate-800">
-              LastMinute <span className="bg-gradient-to-r from-blue-600 to-indigo-500 bg-clip-text text-transparent">AI</span>
+              LastMinute <span className="text-blue-600">AI</span>
             </h1>
             <p className="text-[10px] text-slate-400 font-mono uppercase tracking-wider font-semibold">Workspace Agent</p>
           </div>
         </div>
         
-        {/* Mobile Notification Badge */}
+        {/* Mobile Notification Badge button */}
         <button 
           onClick={() => setShowNotifications(!showNotifications)}
           className="md:hidden relative p-1 text-slate-400 hover:text-slate-600"
         >
           <Bell className="w-5 h-5" />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-mono text-[9px] w-4 h-4 rounded-full flex items-center justify-center animate-bounce">
+            <span className="absolute -top-1 -right-1 bg-blue-600 text-white font-mono text-[9px] w-4 h-4 rounded-full flex items-center justify-center animate-bounce">
               {unreadCount}
             </span>
           )}
         </button>
       </div>
 
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+      {/* Navigation Tabs */}
+      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         {menuItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
@@ -75,13 +77,13 @@ export const Navigation: React.FC<NavigationProps> = ({
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl transition-all text-sm text-left group ${
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all font-medium text-sm text-left group ${
                 isActive 
-                  ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 text-blue-700 shadow-sm font-semibold' 
-                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+                  ? 'bg-white border border-slate-200 text-blue-600 shadow-sm font-semibold' 
+                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
               }`}
             >
-              <Icon className={`w-4.5 h-4.5 transition-transform group-hover:scale-105 ${isActive ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'}`} />
+              <Icon className={`w-5 h-5 transition-transform group-hover:scale-105 ${isActive ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'}`} />
               <span>{item.label}</span>
             </button>
           );

@@ -1,10 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User } from 'firebase/auth';
 import { 
   googleSignIn, 
   initAuth, 
   logoutUser, 
-  getAccessToken 
+  getAccessToken,
+  emailSignIn,
+  emailSignUp,
+  User
 } from '../lib/firebase';
 import { 
   subscribeTasks, 
@@ -38,6 +40,8 @@ interface AppContextType {
   isChatLoading: boolean;
 
   handleLogin: () => Promise<void>;
+  handleEmailSignIn: (email: string, password: string) => Promise<void>;
+  handleEmailSignUp: (email: string, password: string, name: string) => Promise<void>;
   handleLogout: () => Promise<void>;
   
   // Tasks CRUD
@@ -177,6 +181,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     } catch (err) {
       console.error('Login error in Context:', err);
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleEmailSignIn = async (email: string, password: string) => {
+    setIsLoggingIn(true);
+    try {
+      const authUser = await emailSignIn(email, password);
+      setUser(authUser);
+      setAccessToken(null);
+      setNeedsAuth(false);
+    } catch (err: any) {
+      console.error('Email login error in Context:', err);
+      throw err;
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleEmailSignUp = async (email: string, password: string, name: string) => {
+    setIsLoggingIn(true);
+    try {
+      const authUser = await emailSignUp(email, password, name);
+      setUser(authUser);
+      setAccessToken(null);
+      setNeedsAuth(false);
+    } catch (err: any) {
+      console.error('Email register error in Context:', err);
+      throw err;
     } finally {
       setIsLoggingIn(false);
     }
@@ -690,6 +724,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       chatHistory,
       isChatLoading,
       handleLogin,
+      handleEmailSignIn,
+      handleEmailSignUp,
       handleLogout,
       addTask,
       updateTask,

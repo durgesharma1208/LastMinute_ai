@@ -39,6 +39,7 @@ export const TaskManagementView: React.FC = () => {
   
   // Expanded task ID for subtask view
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
+  const [subtaskTitle, setSubtaskTitle] = useState('');
 
   // Handle task submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -74,8 +75,12 @@ export const TaskManagementView: React.FC = () => {
     }, 1000);
   };
 
-  const handleAddSubtaskSubmit = async (taskId: string, subtaskText: string) => {
-    await addSubtask(taskId, subtaskText);
+  const handleAddSubtaskSubmit = async (taskId: string, e: React.FormEvent) => {
+    e.preventDefault();
+    if (!subtaskTitle.trim()) return;
+
+    await addSubtask(taskId, subtaskTitle);
+    setSubtaskTitle('');
   };
 
   return (
@@ -217,6 +222,8 @@ export const TaskManagementView: React.FC = () => {
                 onDelete={deleteTask}
                 expanded={expandedTaskId === task.id}
                 onToggleExpand={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)}
+                subtaskTitle={subtaskTitle}
+                setSubtaskTitle={setSubtaskTitle}
                 onAddSubtaskSubmit={handleAddSubtaskSubmit}
                 onToggleSubtask={toggleSubtask}
               />
@@ -247,6 +254,8 @@ export const TaskManagementView: React.FC = () => {
                 onDelete={deleteTask}
                 expanded={expandedTaskId === task.id}
                 onToggleExpand={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)}
+                subtaskTitle={subtaskTitle}
+                setSubtaskTitle={setSubtaskTitle}
                 onAddSubtaskSubmit={handleAddSubtaskSubmit}
                 onToggleSubtask={toggleSubtask}
               />
@@ -277,6 +286,8 @@ export const TaskManagementView: React.FC = () => {
                 onDelete={deleteTask}
                 expanded={expandedTaskId === task.id}
                 onToggleExpand={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)}
+                subtaskTitle={subtaskTitle}
+                setSubtaskTitle={setSubtaskTitle}
                 onAddSubtaskSubmit={handleAddSubtaskSubmit}
                 onToggleSubtask={toggleSubtask}
               />
@@ -301,7 +312,9 @@ interface TaskCardProps {
   onDelete: (id: string) => void;
   expanded: boolean;
   onToggleExpand: () => void;
-  onAddSubtaskSubmit: (taskId: string, subtaskText: string) => void;
+  subtaskTitle: string;
+  setSubtaskTitle: (val: string) => void;
+  onAddSubtaskSubmit: (taskId: string, e: React.FormEvent) => void;
   onToggleSubtask: (taskId: string, subtaskId: string) => void;
 }
 
@@ -311,10 +324,11 @@ const TaskCard: React.FC<TaskCardProps> = ({
   onDelete,
   expanded,
   onToggleExpand,
+  subtaskTitle,
+  setSubtaskTitle,
   onAddSubtaskSubmit,
   onToggleSubtask
 }) => {
-  const [localSubtaskTitle, setLocalSubtaskTitle] = useState('');
   const urgencyClass = 
     task.priority === 'high' 
       ? 'border-rose-200 bg-rose-50/10' 
@@ -477,20 +491,12 @@ const TaskCard: React.FC<TaskCardProps> = ({
           </div>
 
           {/* Add Subtask inline form */}
-          <form 
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!localSubtaskTitle.trim()) return;
-              onAddSubtaskSubmit(task.id, localSubtaskTitle.trim());
-              setLocalSubtaskTitle('');
-            }} 
-            className="flex items-center space-x-2"
-          >
+          <form onSubmit={(e) => onAddSubtaskSubmit(task.id, e)} className="flex items-center space-x-2">
             <input 
               type="text" 
               placeholder="Add subtask..."
-              value={localSubtaskTitle}
-              onChange={(e) => setLocalSubtaskTitle(e.target.value)}
+              value={subtaskTitle}
+              onChange={(e) => setSubtaskTitle(e.target.value)}
               className="flex-1 bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs focus:outline-none focus:border-blue-500"
             />
             <button 

@@ -1,76 +1,38 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Space Grotesk", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
-  --color-blue-50: #eef2ff;
-  --color-blue-100: #e0e7ff;
-  --color-blue-200: #c7d2fe;
-  --color-blue-300: #a5b4fc;
-  --color-blue-400: #818cf8;
-  --color-blue-500: #6366f1;
-  --color-blue-600: #4f46e5;
-  --color-blue-700: #4338ca;
-  --color-blue-800: #3730a3;
-  --color-blue-900: #312e81;
 }
 
 body {
   font-family: var(--font-sans);
-  background-color: #f1f5f9;
+  background-color: #f8fafc;
   color: #0f172a;
 }
 
 /* Custom scrollbars */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   background: #cbd5e1;
   border-radius: 4px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
 
-/* Animations */
-@keyframes fade-in {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-@keyframes slide-down {
-  from { opacity: 0; max-height: 0; }
-  to { opacity: 1; max-height: 800px; }
-}
-@keyframes slide-in {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0); }
-}
-@keyframes pulse-soft {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
-}
-
-.animate-fade-in {
-  animation: fade-in 0.4s ease-out;
-}
-.animate-slide-down {
-  animation: slide-down 0.3s ease-out;
-}
-.animate-slide-in {
-  animation: slide-in 0.25s ease-out;
-}
-.animate-pulse-soft {
-  animation: pulse-soft 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-/* Google Sign-In Button */
+/* Official Google Sign-In Button Styles */
 .gsi-material-button {
   -moz-user-select: none;
   -webkit-user-select: none;
@@ -79,20 +41,20 @@ body {
   background-color: WHITE;
   background-image: none;
   border: 1px solid #747775;
-  -webkit-border-radius: 8px;
-  border-radius: 8px;
+  -webkit-border-radius: 4px;
+  border-radius: 4px;
   -webkit-box-sizing: border-box;
   box-sizing: border-box;
   color: #1f1f1f;
   cursor: pointer;
-  font-family: 'Inter', arial, sans-serif;
+  font-family: 'Roboto', arial, sans-serif;
   font-size: 14px;
   font-weight: 500;
-  height: 44px;
+  height: 40px;
   letter-spacing: 0.25px;
   outline: none;
   overflow: hidden;
-  padding: 0 16px;
+  padding: 0 12px;
   position: relative;
   text-align: center;
   -webkit-transition: background-color .218s, border-color .218s, box-shadow .218s;
@@ -103,11 +65,13 @@ body {
   max-width: 400px;
   min-width: min-content;
 }
+
 .gsi-material-button .gsi-material-button-icon {
   height: 20px;
   min-width: 20px;
   width: 20px;
 }
+
 .gsi-material-button .gsi-material-button-content-wrapper {
   align-items: center;
   display: flex;
@@ -118,6 +82,7 @@ body {
   position: relative;
   width: 100%;
 }
+
 .gsi-material-button .gsi-material-button-contents {
   flex-grow: 1;
   font-family: 'Inter', sans-serif;
@@ -126,6 +91,7 @@ body {
   margin-right: 4px;
   text-align: left;
 }
+
 .gsi-material-button .gsi-material-button-state {
   -webkit-transition: opacity .218s;
   transition: opacity .218s;
@@ -136,34 +102,23 @@ body {
   right: 0;
   top: 0;
 }
+
 .gsi-material-button:hover {
   -webkit-box-shadow: 0 1px 2px 0 rgba(60,64,67,0.30), 0 1px 3px 1px rgba(60,64,67,0.15);
   box-shadow: 0 1px 2px 0 rgba(60,64,67,0.30), 0 1px 3px 1px rgba(60,64,67,0.15);
 }
+
 .gsi-material-button:hover .gsi-material-button-state {
   background-color: #303030;
   opacity: 0.04;
 }
+
 .gsi-material-button:focus .gsi-material-button-state {
   background-color: #303030;
   opacity: 0.12;
 }
+
 .gsi-material-button:hover:active .gsi-material-button-state {
   background-color: #303030;
   opacity: 0.10;
 }
-
-/* Glassmorphism utility */
-.glass {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-/* Markdown body in chat */
-.markdown-body p { margin-bottom: 0.5rem; }
-.markdown-body ul { list-style: disc; padding-left: 1.25rem; margin-bottom: 0.5rem; }
-.markdown-body ol { list-style: decimal; padding-left: 1.25rem; margin-bottom: 0.5rem; }
-.markdown-body code { background: #e2e8f0; padding: 1px 4px; border-radius: 4px; font-size: 0.8em; }
-.markdown-body strong { font-weight: 700; }

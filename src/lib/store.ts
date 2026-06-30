@@ -1,151 +1,200 @@
 import { Task, Habit, ScheduledEvent, SmartNotification } from '../types';
 
-const API_BASE = '';
+// Simple pub/sub listener map for real-time reactivity
+type Listener = () => void;
+const listeners: { [key: string]: Listener[] } = {};
 
-async function apiFetch(url: string, options?: RequestInit) {
-  const response = await fetch(`${API_BASE}${url}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers,
-    },
-  });
-  if (!response.ok) {
-    let errorMsg = `Request failed with status ${response.status}`;
-    try {
-      const errData = await response.json();
-      if (errData && errData.error) errorMsg = errData.error;
-    } catch (_) {}
-    throw new Error(errorMsg);
+const trigger = (key: string) => {
+  if (listeners[key]) {
+    listeners[key].forEach(cb => {
+      try {
+        cb();
+      } catch (err) {
+        console.error('Error triggering local storage listener:', err);
+      }
+    });
   }
-  return response.json();
-}
+};
 
-function getAuthHeaders(userId: string): Record<string, string> {
-  return { 'x-user-id': userId };
-}
+const addListener = (key: string, cb: Listener) => {
+  if (!listeners[key]) {
+    listeners[key] = [];
+  }
+  listeners[key].push(cb);
+  return () => {
+    listeners[key] = listeners[key].filter(item => item !== cb);
+  };
+};
 
-// ==================== TASKS ====================
+// Helper to get from local storage safely
+const getLocalData = <T>(key: string, defaultValue: T): T => {
+  try {
+    const item = localStorage.getItem(key);
+    return item ? JSON.parse(item) : defaultValue;
+  } catch (err) {
+    console.error(`Error reading ${key} from localStorage:`, err);
+    return defaultValue;
+  }
+};
+
+// Helper to set local storage safely
+const setLocalData = <T>(key: string, data: T) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (err) {
+    console.error(`Error writing ${key} to localStorage:`, err);
+  }
+};
+
+// --- TASKS STORE ---
 
 export const subscribeTasks = (userId: string, callback: (tasks: Task[]) => void) => {
-  const fetchTasks = async () => {
-    try {
-      const data = await apiFetch('/api/tasks', { headers: getAuthHeaders(userId) });
-      callback(data.tasks || []);
-    } catch (err) {
-      console.error('Failed to fetch tasks:', err);
-    }
+  const storageKey = `user_${userId}_tasks`;
+  
+  // Call immediately with initial data
+  const loadAndDeliver = () => {
+    const tasks = getLocalData<Task[]>(storageKey, []);
+    tasks.sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
+    callback(tasks);
   };
-  fetchTasks();
-  const interval = setInterval(fetchTasks, 5000);
-  return () => clearInterval(interval);
+  
+  loadAndDeliver();
+  return addListener(storageKey, loadAndDeliver);
 };
 
 export const saveTask = async (userId: string, task: Task) => {
-  await apiFetch('/api/tasks', {
-    method: 'POST',
-    headers: getAuthHeaders(userId),
-    body: JSON.stringify(task),
-  });
+  const storageKey = `user_${userId}_tasks`;
+  const tasks = getLocalData<Task[]>(storageKey, []);
+  
+  const existingIndex = tasks.findIndex(t => t.id === task.id);
+  if (existingIndex >= 0) {
+    tasks[existingIndex] = { ...task, userId };
+  } else {
+    tasks.push({ ...task, userId });
+  }
+  
+  setLocalData(storageKey, tasks);
+  trigger(storageKey);
 };
 
 export const removeTask = async (userId: string, taskId: string) => {
-  await apiFetch(`/api/tasks/${taskId}`, {
-    method: 'DELETE',
-    headers: getAuthHeaders(userId),
-  });
+  const storageKey = `user_${userId}_tasks`;
+  const tasks = getLocalData<Task[]>(storageKey, []);
+  
+  const filtered = tasks.filter(t => t.id !== taskId);
+  setLocalData(storageKey, filtered);
+  trigger(storageKey);
 };
 
-// ==================== HABITS ====================
+// --- HABITS STORE ---
 
 export const subscribeHabits = (userId: string, callback: (habits: Habit[]) => void) => {
-  const fetchHabits = async () => {
-    try {
-      const data = await apiFetch('/api/habits', { headers: getAuthHeaders(userId) });
-      callback(data.habits || []);
-    } catch (err) {
-      console.error('Failed to fetch habits:', err);
-    }
+  const storageKey = `user_${userId}_habits`;
+  
+  const loadAndDeliver = () => {
+    const habits = getLocalData<Habit[]>(storageKey, []);
+    callback(habits);
   };
-  fetchHabits();
-  const interval = setInterval(fetchHabits, 5000);
-  return () => clearInterval(interval);
+  
+  loadAndDeliver();
+  return addListener(storageKey, loadAndDeliver);
 };
 
 export const saveHabit = async (userId: string, habit: Habit) => {
-  await apiFetch('/api/habits', {
-    method: 'POST',
-    headers: getAuthHeaders(userId),
-    body: JSON.stringify(habit),
-  });
+  const storageKey = `user_${userId}_habits`;
+  const habits = getLocalData<Habit[]>(storageKey, []);
+  
+  const existingIndex = habits.findIndex(h => h.id === habit.id);
+  if (existingIndex >= 0) {
+    habits[existingIndex] = habit;
+  } else {
+    habits.push(habit);
+  }
+  
+  setLocalData(storageKey, habits);
+  trigger(storageKey);
 };
 
 export const removeHabit = async (userId: string, habitId: string) => {
-  await apiFetch(`/api/habits/${habitId}`, {
-    method: 'DELETE',
-    headers: getAuthHeaders(userId),
-  });
+  const storageKey = `user_${userId}_habits`;
+  const habits = getLocalData<Habit[]>(storageKey, []);
+  
+  const filtered = habits.filter(h => h.id !== habitId);
+  setLocalData(storageKey, filtered);
+  trigger(storageKey);
 };
 
-// ==================== SCHEDULE ====================
+// --- SCHEDULE STORE ---
 
 export const subscribeSchedule = (userId: string, callback: (schedule: ScheduledEvent[]) => void) => {
-  const fetchSchedule = async () => {
-    try {
-      const data = await apiFetch('/api/schedule', { headers: getAuthHeaders(userId) });
-      callback(data.schedule || []);
-    } catch (err) {
-      console.error('Failed to fetch schedule:', err);
-    }
+  const storageKey = `user_${userId}_schedule`;
+  
+  const loadAndDeliver = () => {
+    const schedule = getLocalData<ScheduledEvent[]>(storageKey, []);
+    schedule.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+    callback(schedule);
   };
-  fetchSchedule();
-  const interval = setInterval(fetchSchedule, 5000);
-  return () => clearInterval(interval);
+  
+  loadAndDeliver();
+  return addListener(storageKey, loadAndDeliver);
 };
 
 export const saveScheduleEvent = async (userId: string, event: ScheduledEvent) => {
-  await apiFetch('/api/schedule', {
-    method: 'POST',
-    headers: getAuthHeaders(userId),
-    body: JSON.stringify(event),
-  });
+  const storageKey = `user_${userId}_schedule`;
+  const schedule = getLocalData<ScheduledEvent[]>(storageKey, []);
+  
+  const existingIndex = schedule.findIndex(e => e.id === event.id);
+  if (existingIndex >= 0) {
+    schedule[existingIndex] = event;
+  } else {
+    schedule.push(event);
+  }
+  
+  setLocalData(storageKey, schedule);
+  trigger(storageKey);
 };
 
-export const saveFullSchedule = async (userId: string, schedule: ScheduledEvent[]) => {
-  await apiFetch('/api/schedule/bulk', {
-    method: 'POST',
-    headers: getAuthHeaders(userId),
-    body: JSON.stringify({ schedule }),
-  });
+export const saveFullSchedule = async (userId: string, newSchedule: ScheduledEvent[]) => {
+  const storageKey = `user_${userId}_schedule`;
+  setLocalData(storageKey, newSchedule);
+  trigger(storageKey);
 };
 
-// ==================== NOTIFICATIONS ====================
+// --- NOTIFICATIONS STORE ---
 
 export const subscribeNotifications = (userId: string, callback: (notifications: SmartNotification[]) => void) => {
-  const fetchNotifications = async () => {
-    try {
-      const data = await apiFetch('/api/notifications', { headers: getAuthHeaders(userId) });
-      callback(data.notifications || []);
-    } catch (err) {
-      console.error('Failed to fetch notifications:', err);
-    }
+  const storageKey = `user_${userId}_notifications`;
+  
+  const loadAndDeliver = () => {
+    const notifications = getLocalData<SmartNotification[]>(storageKey, []);
+    notifications.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    callback(notifications);
   };
-  fetchNotifications();
-  const interval = setInterval(fetchNotifications, 5000);
-  return () => clearInterval(interval);
+  
+  loadAndDeliver();
+  return addListener(storageKey, loadAndDeliver);
 };
 
 export const saveNotification = async (userId: string, notification: SmartNotification) => {
-  await apiFetch('/api/notifications', {
-    method: 'POST',
-    headers: getAuthHeaders(userId),
-    body: JSON.stringify(notification),
-  });
+  const storageKey = `user_${userId}_notifications`;
+  const notifications = getLocalData<SmartNotification[]>(storageKey, []);
+  
+  const existingIndex = notifications.findIndex(n => n.id === notification.id);
+  if (existingIndex >= 0) {
+    notifications[existingIndex] = notification;
+  } else {
+    notifications.push(notification);
+  }
+  
+  setLocalData(storageKey, notifications);
+  trigger(storageKey);
 };
 
 export const removeNotification = async (userId: string, notifId: string) => {
-  await apiFetch(`/api/notifications/${notifId}`, {
-    method: 'DELETE',
-    headers: getAuthHeaders(userId),
-  });
+  const storageKey = `user_${userId}_notifications`;
+  const notifications = getLocalData<SmartNotification[]>(storageKey, []);
+  
+  const filtered = notifications.filter(n => n.id !== notifId);
+  setLocalData(storageKey, filtered);
+  trigger(storageKey);
 };

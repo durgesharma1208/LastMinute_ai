@@ -2,296 +2,52 @@ import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type, Schema } from "@google/genai";
-import mongoose from "mongoose";
-import cors from "cors";
 import dotenv from "dotenv";
 
+// Load environment variables
 dotenv.config();
-
-import { TaskModel } from "./src/models/Task";
-import { HabitModel } from "./src/models/Habit";
-import { ScheduleEventModel } from "./src/models/ScheduleEvent";
-import { NotificationModel } from "./src/models/Notification";
 
 const app = express();
 const PORT = 3000;
 
-app.use(cors());
-app.use(express.json());
-
-// MongoDB Connection
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/lastminute-ai";
-mongoose.connect(MONGODB_URI)
-  .then(() => console.log("[DB] Connected to MongoDB"))
-  .catch((err) => console.error("[DB] MongoDB connection error:", err));
-
-// Initialize Google GenAI SDK
+// Initialize Google GenAI SDK with server-side API Key
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    headers: { "User-Agent": "aistudio-build" },
-  },
 });
 
+// Resilient helper to call generateContent with fallbacks to handle transient model errors or high demand (503/429)
 async function generateContentWithFallback(params: Parameters<typeof ai.models.generateContent>[0]) {
-  const models = ["gemini-2.0-flash", "gemini-2.0-flash-lite"];
+  const models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
   let lastError: any = null;
+
   for (const model of models) {
     try {
       console.log(`[AI] Attempting request using model: ${model}`);
-      const response = await ai.models.generateContent({ ...params, model });
+      const response = await ai.models.generateContent({
+        ...params,
+        model,
+      });
       console.log(`[AI] Success using model: ${model}`);
       return response;
     } catch (err: any) {
       console.warn(`[AI] Model ${model} failed:`, err.message || err);
       lastError = err;
+      // If it's a 503 (high demand) or other API error, fallback to the next model
     }
   }
   throw lastError;
 }
 
-// ==================== AUTH MIDDLEWARE ====================
-const requireAuth: express.RequestHandler = (req, res, next) => {
-  const userId = req.headers["x-user-id"] as string;
-  if (!userId) {
-    res.status(401).json({ error: "Missing x-user-id header" });
-    return;
-  }
-  (req as any).userId = userId;
-  next();
-};
+app.use(express.json());
 
-// ==================== TASKS CRUD ====================
-app.get("/api/tasks", requireAuth, async (req, res) => {
-  try {
-    const userId = (req as any).userId;
-    const tasks = await TaskModel.find({ userId }).sort({ deadline: 1 }).lean();
-    res.json({ tasks });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/api/tasks", requireAuth, async (req, res) => {
-  try {
-    const userId = (req as any).userId;
-    const taskData = { ...req.body, userId };
-    const task = await TaskModel.findOneAndUpdate(
-      { id: taskData.id, userId },
-      { $set: taskData },
-      { upsert: true, new: true }
-    );
-    res.json({ task });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.put("/api/tasks/:id", requireAuth, async (req, res) => {
-  try {
-    const userId = (req as any).userId;
-    const task = await TaskModel.findOneAndUpdate(
-      { id: req.params.id, userId },
-      { $set: req.body },
-      { new: true }
-    );
-    if (!task) { res.status(404).json({ error: "Task not found" }); return; }
-    res.json({ task });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.delete("/api/tasks/:id", requireAuth, async (req, res) => {
-  try {
-    const userId = (req as any).userId;
-    const task = await TaskModel.findOneAndDelete({ id: req.params.id, userId });
-    if (!task) { res.status(404).json({ error: "Task not found" }); return; }
-    res.json({ success: true });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ==================== HABITS CRUD ====================
-app.get("/api/habits", requireAuth, async (req, res) => {
-  try {
-    const userId = (req as any).userId;
-    const habits = await HabitModel.find({ userId }).lean();
-    res.json({ habits });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/api/habits", requireAuth, async (req, res) => {
-  try {
-    const userId = (req as any).userId;
-    const habitData = { ...req.body, userId };
-    const habit = await HabitModel.findOneAndUpdate(
-      { id: habitData.id, userId },
-      { $set: habitData },
-      { upsert: true, new: true }
-    );
-    res.json({ habit });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.put("/api/habits/:id", requireAuth, async (req, res) => {
-  try {
-    const userId = (req as any).userId;
-    const habit = await HabitModel.findOneAndUpdate(
-      { id: req.params.id, userId },
-      { $set: req.body },
-      { new: true }
-    );
-    if (!habit) { res.status(404).json({ error: "Habit not found" }); return; }
-    res.json({ habit });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.delete("/api/habits/:id", requireAuth, async (req, res) => {
-  try {
-    const userId = (req as any).userId;
-    const habit = await HabitModel.findOneAndDelete({ id: req.params.id, userId });
-    if (!habit) { res.status(404).json({ error: "Habit not found" }); return; }
-    res.json({ success: true });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ==================== SCHEDULE CRUD ====================
-app.get("/api/schedule", requireAuth, async (req, res) => {
-  try {
-    const userId = (req as any).userId;
-    const schedule = await ScheduleEventModel.find({ userId }).sort({ startTime: 1 }).lean();
-    res.json({ schedule });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/api/schedule", requireAuth, async (req, res) => {
-  try {
-    const userId = (req as any).userId;
-    const eventData = { ...req.body, userId };
-    const event = await ScheduleEventModel.findOneAndUpdate(
-      { id: eventData.id, userId },
-      { $set: eventData },
-      { upsert: true, new: true }
-    );
-    res.json({ event });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.put("/api/schedule/:id", requireAuth, async (req, res) => {
-  try {
-    const userId = (req as any).userId;
-    const event = await ScheduleEventModel.findOneAndUpdate(
-      { id: req.params.id, userId },
-      { $set: req.body },
-      { new: true }
-    );
-    if (!event) { res.status(404).json({ error: "Schedule event not found" }); return; }
-    res.json({ event });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.delete("/api/schedule", requireAuth, async (req, res) => {
-  try {
-    const userId = (req as any).userId;
-    await ScheduleEventModel.deleteMany({ userId });
-    res.json({ success: true });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/api/schedule/bulk", requireAuth, async (req, res) => {
-  try {
-    const userId = (req as any).userId;
-    const { schedule } = req.body;
-    await ScheduleEventModel.deleteMany({ userId });
-    if (schedule && schedule.length > 0) {
-      const events = schedule.map((ev: any) => ({ ...ev, userId }));
-      await ScheduleEventModel.insertMany(events);
-    }
-    res.json({ success: true });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ==================== NOTIFICATIONS CRUD ====================
-app.get("/api/notifications", requireAuth, async (req, res) => {
-  try {
-    const userId = (req as any).userId;
-    const notifications = await NotificationModel.find({ userId }).sort({ timestamp: -1 }).lean();
-    res.json({ notifications });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/api/notifications", requireAuth, async (req, res) => {
-  try {
-    const userId = (req as any).userId;
-    const notifData = { ...req.body, userId };
-    const notification = await NotificationModel.findOneAndUpdate(
-      { id: notifData.id, userId },
-      { $set: notifData },
-      { upsert: true, new: true }
-    );
-    res.json({ notification });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.put("/api/notifications/:id", requireAuth, async (req, res) => {
-  try {
-    const userId = (req as any).userId;
-    const notification = await NotificationModel.findOneAndUpdate(
-      { id: req.params.id, userId },
-      { $set: req.body },
-      { new: true }
-    );
-    if (!notification) { res.status(404).json({ error: "Notification not found" }); return; }
-    res.json({ notification });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.delete("/api/notifications/:id", requireAuth, async (req, res) => {
-  try {
-    const userId = (req as any).userId;
-    const notification = await NotificationModel.findOneAndDelete({ id: req.params.id, userId });
-    if (!notification) { res.status(404).json({ error: "Notification not found" }); return; }
-    res.json({ success: true });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ==================== AI ENDPOINTS ====================
-
-// AI Smart Prioritization
+// API route: AI Smart Prioritization
 app.post("/api/ai/prioritize", async (req, res) => {
   try {
     const { tasks } = req.body;
     if (!tasks || !Array.isArray(tasks)) {
       return res.status(400).json({ error: "Tasks array is required" });
     }
+
     if (tasks.length === 0) {
       return res.json({ tasks: [] });
     }
@@ -309,6 +65,7 @@ Output must be in JSON matching the requested schema. Ensure all tasks from inpu
 
     const userPrompt = `Here is the list of tasks to analyze: ${JSON.stringify(tasks)}`;
 
+    // Define JSON Schema for response
     const taskPrioritySchema: Schema = {
       type: Type.OBJECT,
       properties: {
@@ -332,7 +89,7 @@ Output must be in JSON matching the requested schema. Ensure all tasks from inpu
     };
 
     const response = await generateContentWithFallback({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       contents: [systemPrompt, userPrompt],
       config: {
         responseMimeType: "application/json",
@@ -342,7 +99,9 @@ Output must be in JSON matching the requested schema. Ensure all tasks from inpu
     });
 
     const resultText = response.text;
-    if (!resultText) throw new Error("Empty response from AI");
+    if (!resultText) {
+      throw new Error("Empty response from AI");
+    }
 
     const parsedResult = JSON.parse(resultText);
     res.json(parsedResult);
@@ -352,7 +111,7 @@ Output must be in JSON matching the requested schema. Ensure all tasks from inpu
   }
 });
 
-// AI Scheduler
+// API route: AI Scheduler
 app.post("/api/ai/schedule", async (req, res) => {
   try {
     const { tasks, calendarEvents, preferredWorkHours, sleepHours, currentTime } = req.body;
@@ -409,7 +168,7 @@ Preferred sleep hours: ${JSON.stringify(sleepHours || { start: "23:00", end: "07
     };
 
     const response = await generateContentWithFallback({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       contents: [systemPrompt, userPrompt],
       config: {
         responseMimeType: "application/json",
@@ -419,7 +178,9 @@ Preferred sleep hours: ${JSON.stringify(sleepHours || { start: "23:00", end: "07
     });
 
     const resultText = response.text;
-    if (!resultText) throw new Error("Empty response from AI");
+    if (!resultText) {
+      throw new Error("Empty response from AI");
+    }
 
     const parsedResult = JSON.parse(resultText);
     res.json(parsedResult);
@@ -429,7 +190,7 @@ Preferred sleep hours: ${JSON.stringify(sleepHours || { start: "23:00", end: "07
   }
 });
 
-// AI Deadline Prediction
+// API route: AI Deadline Prediction
 app.post("/api/ai/predict", async (req, res) => {
   try {
     const { tasks, schedule, currentTime } = req.body;
@@ -446,7 +207,7 @@ Consider:
 For each task in the list, you must output:
 - taskId: string
 - probability: number (integer 0 to 100) indicating chance of missing deadline
-- recommendation: A specific, short, actionable advice to reduce this risk
+- recommendation: A specific, short, actionable advice to reduce this risk (e.g. "Start within 20 mins, move gym to tomorrow", "Delegate subtask A or split work").
 
 Output must be in JSON matching the requested schema.`;
 
@@ -472,7 +233,7 @@ Output must be in JSON matching the requested schema.`;
     };
 
     const response = await generateContentWithFallback({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       contents: [systemPrompt, userPrompt],
       config: {
         responseMimeType: "application/json",
@@ -482,7 +243,9 @@ Output must be in JSON matching the requested schema.`;
     });
 
     const resultText = response.text;
-    if (!resultText) throw new Error("Empty response from AI");
+    if (!resultText) {
+      throw new Error("Empty response from AI");
+    }
 
     const parsedResult = JSON.parse(resultText);
     res.json(parsedResult);
@@ -492,7 +255,7 @@ Output must be in JSON matching the requested schema.`;
   }
 });
 
-// AI Productivity Coach
+// API route: AI Productivity Coach
 app.post("/api/ai/coach", async (req, res) => {
   try {
     const { tasks, habits, focusScore } = req.body;
@@ -506,7 +269,7 @@ Calculate the productivity report, including:
 4. missedDeadlinesCount (count of deadlines that are past but task is not completed, or completed late)
 5. averageDelayMinutes (average delay in completing tasks beyond deadline)
 6. dailyStreak (overall streak based on habit completions)
-7. insights (3 customized strings explaining their productivity trends)
+7. insights (3 customized strings explaining their productivity trends, e.g., "You complete coding tasks faster in the morning.")
 8. suggestions (3 customized items: {title, description, impact: 'high' | 'medium' | 'low'})
 
 Output must be in JSON matching the requested schema.`;
@@ -525,7 +288,10 @@ Focus Score Input: ${focusScore || 70}`;
         missedDeadlinesCount: { type: Type.INTEGER },
         averageDelayMinutes: { type: Type.INTEGER },
         dailyStreak: { type: Type.INTEGER },
-        insights: { type: Type.ARRAY, items: { type: Type.STRING } },
+        insights: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING },
+        },
         suggestions: {
           type: Type.ARRAY,
           items: {
@@ -533,17 +299,29 @@ Focus Score Input: ${focusScore || 70}`;
             properties: {
               title: { type: Type.STRING },
               description: { type: Type.STRING },
-              impact: { type: Type.STRING, enum: ["high", "medium", "low"] },
+              impact: {
+                type: Type.STRING,
+                enum: ["high", "medium", "low"],
+              },
             },
             required: ["title", "description", "impact"],
           },
         },
       },
-      required: ["focusScore", "completionRate", "completedTasksCount", "missedDeadlinesCount", "averageDelayMinutes", "dailyStreak", "insights", "suggestions"],
+      required: [
+        "focusScore",
+        "completionRate",
+        "completedTasksCount",
+        "missedDeadlinesCount",
+        "averageDelayMinutes",
+        "dailyStreak",
+        "insights",
+        "suggestions",
+      ],
     };
 
     const response = await generateContentWithFallback({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       contents: [systemPrompt, userPrompt],
       config: {
         responseMimeType: "application/json",
@@ -553,7 +331,9 @@ Focus Score Input: ${focusScore || 70}`;
     });
 
     const resultText = response.text;
-    if (!resultText) throw new Error("Empty response from AI");
+    if (!resultText) {
+      throw new Error("Empty response from AI");
+    }
 
     const parsedResult = JSON.parse(resultText);
     res.json(parsedResult);
@@ -563,7 +343,7 @@ Focus Score Input: ${focusScore || 70}`;
   }
 });
 
-// AI Chat Assistant
+// API route: AI Chat Assistant
 app.post("/api/ai/chat", async (req, res) => {
   try {
     const { message, history, tasks, schedule, habits, currentTime } = req.body;
@@ -598,8 +378,8 @@ Output must be in JSON matching the requested schema.`;
         suggestedAction: {
           type: Type.OBJECT,
           properties: {
-            type: { type: Type.STRING },
-            payload: { type: Type.OBJECT },
+            type: { type: Type.STRING }, // e.g., "create_task", "rearrange_schedule", "take_break"
+            payload: { type: Type.OBJECT }, // payload details
           },
           required: ["type"],
         },
@@ -607,6 +387,7 @@ Output must be in JSON matching the requested schema.`;
       required: ["text"],
     };
 
+    // Format conversation history
     const contents: any[] = [systemPrompt];
     if (history && Array.isArray(history)) {
       history.forEach((h) => {
@@ -616,7 +397,7 @@ Output must be in JSON matching the requested schema.`;
     contents.push(`User's new message: ${message}`);
 
     const response = await generateContentWithFallback({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       contents: contents,
       config: {
         responseMimeType: "application/json",
@@ -626,7 +407,9 @@ Output must be in JSON matching the requested schema.`;
     });
 
     const resultText = response.text;
-    if (!resultText) throw new Error("Empty response from AI");
+    if (!resultText) {
+      throw new Error("Empty response from AI");
+    }
 
     const parsedResult = JSON.parse(resultText);
     res.json(parsedResult);
@@ -646,7 +429,7 @@ if (process.env.NODE_ENV !== "production") {
     app.use(vite.middlewares);
 
     app.listen(PORT, "0.0.0.0", () => {
-      console.log(`\n  Development Server running on http://localhost:${PORT}`);
+      console.log(`Development Server running on http://localhost:${PORT}`);
     });
   };
   startVite();

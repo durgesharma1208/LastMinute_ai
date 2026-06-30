@@ -87,7 +87,7 @@ export const ChatAssistantView: React.FC = () => {
             <span className="text-[10px] text-emerald-600 font-bold block">● ONLINE</span>
           </div>
         </div>
-        <span className="text-[10px] text-slate-400 font-mono">POWERED BY GEMINI 3.5 FLASH</span>
+        <span className="text-[10px] text-slate-400 font-mono">POWERED BY GEMINI 2.5 FLASH</span>
       </div>
 
       {/* Messages Scrolling Arena */}

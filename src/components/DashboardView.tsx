@@ -60,7 +60,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab, onAd
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between bg-gradient-to-br from-white to-blue-50/30 p-6 md:p-8 rounded-2xl border border-slate-200 shadow-sm gap-6">
+      {/* Dynamic Header Greeting */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between bg-white p-6 md:p-8 rounded-2xl border border-slate-200 shadow-sm gap-6">
         <div>
           <h2 className="text-2xl md:text-3xl font-black font-display tracking-tight text-slate-800">
             Welcome back, {user?.displayName?.split(' ')[0] || 'User'}
@@ -71,7 +72,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab, onAd
                 Your next critical deadline is <strong className="text-rose-600 font-bold">{nextDeadlineTask.title}</strong>, due on{' '}
                 {new Date(nextDeadlineTask.deadline).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}. 
                 {nextDeadlineTask.deadlineRiskProbability && nextDeadlineTask.deadlineRiskProbability > 50 ? (
-                  <span className="text-rose-600 block mt-1.5 font-bold">AI predicts a {nextDeadlineTask.deadlineRiskProbability}% chance of delay unless you start soon.</span>
+                  <span className="text-rose-600 block mt-1.5 font-bold">⚠️ AI predicts a {nextDeadlineTask.deadlineRiskProbability}% chance of delay unless you start soon.</span>
                 ) : (
                   <span className="text-slate-600 block mt-1.5 font-medium">AI recommends starting around {nextDeadlineTask.recommendedStartTime ? new Date(nextDeadlineTask.recommendedStartTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'now'}.</span>
                 )}
@@ -85,7 +86,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab, onAd
           <button 
             onClick={() => runAIPrioritization()}
             disabled={aiLoading}
-            className="flex items-center justify-center space-x-2 bg-white text-slate-700 font-bold px-4 py-2.5 rounded-xl hover:bg-slate-50 transition-all text-xs border border-slate-200 disabled:opacity-50 shadow-sm"
+            className="flex items-center justify-center space-x-2 bg-slate-50 text-slate-700 font-bold px-4 py-2.5 rounded-xl hover:bg-slate-100 transition-all text-xs border border-slate-200 disabled:opacity-50"
           >
             <Sparkles className="w-4 h-4 text-blue-600" />
             <span>AI Rank Work</span>
@@ -93,7 +94,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab, onAd
           <button 
             onClick={() => runAIScheduler()}
             disabled={aiLoading}
-            className="flex items-center justify-center space-x-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold px-4 py-2.5 rounded-xl hover:from-blue-700 hover:to-indigo-700 shadow-sm shadow-blue-600/20 transition-all text-xs disabled:opacity-50"
+            className="flex items-center justify-center space-x-2 bg-blue-600 text-white font-bold px-4 py-2.5 rounded-xl hover:bg-blue-700 shadow-sm shadow-blue-600/10 transition-all text-xs disabled:opacity-50"
           >
             <Calendar className="w-4 h-4" />
             <span>AI Auto-Schedule</span>

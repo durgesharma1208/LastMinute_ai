@@ -72,3 +72,11 @@ export interface SmartNotification {
   taskId?: string;
   read: boolean;
 }
+
+export interface LocalUser {
+  uid: string;
+  email: string;
+  displayName: string | null;
+  photoURL: string | null;
+}
+
